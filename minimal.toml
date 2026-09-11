@@ -17,4 +17,4 @@ packages = ["base", "bash", "opencode", "curl"]
 exec = "opencode"
 
 [session]
-packages = ["chafa", "term.everything", "base", "toolchain", "make", "meson", "ninja", "pkgconf", "expat", "libffi", "libxml2", "zlib", "xorgproto", "libx11", "font-util", "xtrans", "freetype", "mesa", "python", "libfontenc", "libxkbfile", "gettext", "perl", "wayland", "wayland-protocols", "libepoxy", "libxcvt", "libxfont2", "xkbcomp", "xkeyboard-config", "dbus", "nettle", "pixman", "libdrm", "xwayland"]
+packages = ["chafa", "term.everything", "base", "toolchain", "make", "meson", "ninja", "pkgconf", "expat", "libffi", "libxml2", "zlib", "xorgproto", "libx11", "font-util", "xtrans", "freetype", "mesa", "python", "libfontenc", "libxkbfile", "gettext", "perl", "wayland", "wayland-protocols", "libepoxy", "libxcvt", "libxfont2", "xkbcomp", "xkeyboard-config", "dbus", "nettle", "pixman", "libdrm", "xwayland", "niri"]

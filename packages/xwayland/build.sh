@@ -10,19 +10,16 @@ export CFLAGS="$MARCH -O2 -pipe -gno-record-gcc-switches -ffile-prefix-map=$(pwd
 export CXXFLAGS="${CFLAGS}"
 export LDFLAGS="-Wl,--build-id=none"
 
-# glx=false because the registry's mesa is built -Dglx=disabled and so ships no
-# gl.pc; there is no libGL to link against. glamor stays ON and is unaffected --
-# it renders through EGL/gbm, which mesa does provide (softpipe, i.e. software).
-# The consequence is that X11 clients needing GLX will not get it. Fixing that
-# means rebuilding mesa with glx enabled, which is a change to a package much of
-# the registry already depends on.
+# glamor renders through EGL/gbm and provides GLX to X11 clients. Both depend on
+# mesa being built with glx enabled and a Wayland EGL platform; with no GPU this
+# resolves to llvmpipe, i.e. software rendering rather than failure.
 #
 # xkb_output_dir is where the server writes keymaps compiled by xkbcomp. The
 # usual /var/lib/xkb is not writable in this sandbox, so it points at /tmp.
 mkdir build && cd build
 meson setup --prefix=/usr --buildtype=release \
   -Dglamor=true \
-  -Dglx=false \
+  -Dglx=true \
   -Ddri3=true \
   -Dxvfb=false \
   -Dxdmcp=false \
