@@ -13,7 +13,12 @@ export CFLAGS="$MARCH -O2 -pipe -gno-record-gcc-switches -ffile-prefix-map=$(pwd
 export LDFLAGS="-Wl,--build-id=none"
 export CXXFLAGS="${CFLAGS}"
 
-meson setup --prefix=/usr --buildtype=release --wrap-mode=nofallback ..
+# glib=enabled builds libcairo-gobject and its cairo-gobject.pc. Without it,
+# anything binding cairo through GObject introspection (the Rust cairo-sys-rs
+# crate, and so niri) fails to configure.
+meson setup --prefix=/usr --buildtype=release --wrap-mode=nofallback \
+  -Dglib=enabled \
+  ..
 ninja
 
 DESTDIR="$OUTPUT_DIR" ninja install
