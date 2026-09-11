@@ -9,6 +9,7 @@ let pkgconf = import "../pkgconf/build.ncl" in
 let libpng = import "../libpng/build.ncl" in
 let pixman = import "../pixman/build.ncl" in
 let fontconfig = import "../fontconfig/build.ncl" in
+let glib = import "../glib/build.ncl" in
 let glibc = import "../glibc/build.ncl" in
 
 let version = "1.18.4" in
@@ -34,6 +35,8 @@ let version = "1.18.4" in
     libpng,
     pixman,
     fontconfig,
+    # libcairo-gobject links glib/gobject.
+    glib,
     glibc,
   ],
 
