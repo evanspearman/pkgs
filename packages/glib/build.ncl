@@ -40,11 +40,15 @@ let version = "2.88.3" in
   cmd = "./build.sh",
   outputs = {
     # shell or env needed by some of the build utilities
-    bins = { glob = "usr/bin/{glib-*,gdbus,gio,gobject-query,gresource,gsettings,gtester}", allow_missing_interpreter = true } | OutputBin,
+    bins = { glob = "usr/bin/{glib-*,gdbus,gdbus-codegen,gio,gio-querymodules,gobject-query,gresource,gsettings,gtester}", allow_missing_interpreter = true } | OutputBin,
     libs = { glob = "usr/lib/libg{lib,object,io,module,thread}-2.0.so*" } | OutputLib,
     includes = { glob = "usr/include/**" } | OutputData,
     glibconfig = { glob = "usr/lib/glib-2.0/include/**" } | OutputData,
     pkgconfig = { glob = "usr/lib/pkgconfig/*.pc" } | OutputData,
+    # gdbus-codegen is only a launcher; its python modules live here, as do the
+    # gsettings schema tooling and the gettext makefile fragments. Without this
+    # any consumer that runs gdbus-codegen dies with "No module named codegen".
+    sharedata = { glob = "usr/share/glib-2.0/**", allow_executable = true } | OutputData,
   },
 
   attrs =
