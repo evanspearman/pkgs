@@ -37,6 +37,12 @@ let version = "1.16.2" in
     includes = { glob = "usr/include/**" } | OutputData,
     arch-includes = { glob = "usr/lib/dbus-1.0/include/**" } | OutputData,
     pkgconfig = { glob = "usr/lib/pkgconfig/*.pc" } | OutputData,
+    # session.conf / system.conf and the service directories. dbus-daemon reads
+    # session.conf on every `--session` start, so without these the daemon this
+    # package installs cannot run at all: it exits with
+    # `Failed to open "/usr/share/dbus-1/session.conf"`.
+    sharedata = { glob = "usr/share/dbus-1/**" } | OutputData,
+    config = { glob = "etc/dbus-1/**" } | OutputData,
   },
   tests = {
     smoketest =
