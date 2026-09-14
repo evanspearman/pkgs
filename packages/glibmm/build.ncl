@@ -1,4 +1,4 @@
-let { Attrs, BuildSpec, Local, OutputData, OutputLib, Source, .. } = import "minimal.ncl" in
+let { Attrs, BuildSpec, Local, OutputData, OutputLib, Source, Test, .. } = import "minimal.ncl" in
 let base = import "../base/build.ncl" in
 let meson = import "../meson/build.ncl" in
 let ninja = import "../ninja/build.ncl" in
@@ -47,4 +47,19 @@ let version = "2.66.10" in
       license_spdx = "LGPL-2.1-or-later",
       repology_project = "glibmm",
     } | Attrs,
+
+  tests = {
+    # glibmm builds four shared libraries and the glob has silently shipped only
+    # some of them before. waybar links giomm directly, so assert it is here.
+    libs_shipped =
+      {
+        class = 'Standalone,
+        test_deps = [base],
+        cmds = [
+          ["/bin/bash", "-c", "test -e /usr/lib/libglibmm-2.4.so.1"],
+          ["/bin/bash", "-c", "test -e /usr/lib/libgiomm-2.4.so.1"],
+          ["/bin/bash", "-c", "test -e /usr/lib/giomm-2.4/include/giommconfig.h"],
+        ],
+      } | Test,
+  },
 } | BuildSpec
