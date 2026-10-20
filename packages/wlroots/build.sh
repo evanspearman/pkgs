@@ -10,18 +10,23 @@ export CFLAGS="$MARCH -O2 -pipe -gno-record-gcc-switches -ffile-prefix-map=$(pwd
 export CXXFLAGS="${CFLAGS}"
 export LDFLAGS="-Wl,--build-id=none"
 
-# Headless-only build. auto_features=disabled resolves the renderers, backends
-# and allocators arrays to empty, which still leaves what is always built: the
-# headless and wayland backends, the pixman renderer and the shm allocator.
-# That is exactly what a compositor needs to run with no GPU and no seat, as
-# inside a box (WLR_BACKENDS=headless). The DRM/libinput backends would pull in
-# libseat, libudev, libinput, hwdata and libdisplay-info for hardware a box
-# never has, so they are left out until something needs them.
+# Built for headless use. auto_features=disabled leaves the renderers and
+# allocators arrays empty, so there is no EGL, GBM or
+# Vulkan: the pixman renderer and shm allocator, which are always built, are
+# what a compositor uses in a box with no GPU (WLR_RENDERER=pixman).
+#
+# The DRM backend and session support are on even so, because cage, the one
+# consumer, includes <wlr/types/wlr_drm_lease_v1.h> and calls
+# wlr_session_change_vt() unconditionally; wlroots installs neither without
+# them. With WLR_BACKENDS=headless the compositor never opens a seat or a DRM
+# device, so libseat and libudev are linked but unused at runtime. The libinput
+# and x11 backends stay off: nothing here needs them.
 mkdir build && cd build
 meson setup --prefix=/usr --buildtype=release \
   -Dauto_features=disabled \
+  -Dbackends=drm \
+  -Dsession=enabled \
   -Dxwayland=disabled \
-  -Dsession=disabled \
   -Dexamples=false \
   -Dwerror=false \
   ..
