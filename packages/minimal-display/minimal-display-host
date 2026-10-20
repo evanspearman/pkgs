@@ -1,0 +1,188 @@
+#!/bin/bash
+# minimal-display-host: run a Wayland desktop headless inside a box, and serve
+# it over RFB (VNC) for a viewer outside the box.
+#
+#   minimal-display-host [--size WxH] [--scale N] [--tcp HOST:PORT] [-- CMD...]
+#
+# cage, a kiosk compositor, runs on wlroots' headless backend and shows CMD
+# fullscreen. CMD is any Wayland client: a compositor that can run nested
+# (niri, sway, labwc, ...) or a single app. It defaults to niri. wayvnc captures
+# cage's output and injects the viewer's keyboard and pointer back into it.
+#
+# wayvnc listens on $XDG_RUNTIME_DIR/minimal-display/vnc.sock, or on HOST:PORT
+# with --tcp. Once it accepts connections this prints one line, "ready", on
+# stdout; everything else goes to stderr. It runs until CMD exits, it receives
+# SIGHUP, SIGINT or SIGTERM, or (when stdin is not a terminal) stdin reaches
+# EOF, and then stops wayvnc and cage. `min display` depends on this contract.
+set -euo pipefail
+
+prog=minimal-display-host
+size=
+scale=
+tcp=
+
+die() {
+	printf '%s: %s\n' "$prog" "$1" >&2
+	exit "${2:-1}"
+}
+
+usage() {
+	cat <<EOF
+Usage: $prog [--size WxH] [--scale N] [--tcp HOST:PORT] [-- CMD...]
+
+Runs CMD (default: niri) in a headless Wayland compositor and serves it over VNC.
+
+  --size WxH       output size in pixels (default: 1280x720)
+  --scale N        output scale factor, e.g. 2 for a Retina display
+  --tcp HOST:PORT  listen on TCP instead of the unix socket
+                   \$XDG_RUNTIME_DIR/minimal-display/vnc.sock
+EOF
+}
+
+while [ $# -gt 0 ]; do
+	case $1 in
+	--size)
+		[ $# -ge 2 ] || die "--size needs a value, such as --size 1280x720."
+		size=$2
+		shift 2
+		;;
+	--scale)
+		[ $# -ge 2 ] || die "--scale needs a value, such as --scale 2."
+		scale=$2
+		shift 2
+		;;
+	--tcp)
+		[ $# -ge 2 ] || die "--tcp needs a value, such as --tcp 127.0.0.1:5900."
+		tcp=$2
+		shift 2
+		;;
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--)
+		shift
+		break
+		;;
+	*)
+		usage >&2
+		exit 2
+		;;
+	esac
+done
+
+if [ -n "$size" ] && ! [[ $size =~ ^[0-9]+x[0-9]+$ ]]; then
+	die "--size takes WIDTHxHEIGHT in pixels, such as 1280x720, not '$size'."
+fi
+if [ -n "$scale" ] && ! [[ $scale =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+	die "--scale takes a number, such as 2, not '$scale'."
+fi
+if [ -n "$tcp" ] && ! [[ $tcp =~ ^(.+):([0-9]+)$ ]]; then
+	die "--tcp takes HOST:PORT, such as 127.0.0.1:5900, not '$tcp'."
+fi
+
+if [ $# -eq 0 ]; then
+	command -v niri >/dev/null ||
+		die "no command was given and niri is not installed. Name one after --, such as: $prog -- foot" 127
+	set -- niri
+fi
+command -v "$1" >/dev/null || die "$1 is not installed." 127
+
+# Wayland sockets live in XDG_RUNTIME_DIR. A box sets it to /run; a bare
+# sandbox (a package test) may not set it at all.
+if [ -z "${XDG_RUNTIME_DIR:-}" ]; then
+	XDG_RUNTIME_DIR="/tmp/runtime-$(id -u)"
+	export XDG_RUNTIME_DIR
+	mkdir -m 700 -p "$XDG_RUNTIME_DIR"
+fi
+state="$XDG_RUNTIME_DIR/minimal-display"
+mkdir -m 700 -p "$state"
+rm -f "$state/display" "$state/vnc.sock" "$state/wayvncctl.sock"
+
+cage_pid=
+vnc_pid=
+stdin_pid=
+# shellcheck disable=SC2329  # invoked through the EXIT trap
+stop() {
+	trap - EXIT HUP INT TERM
+	for pid in $vnc_pid $cage_pid $stdin_pid; do
+		kill "$pid" 2>/dev/null || true
+	done
+	wait 2>/dev/null || true
+	rm -f "$state/display" "$state/vnc.sock" "$state/wayvncctl.sock"
+}
+trap stop EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# wlroots would otherwise nest inside whatever display this shell inherited.
+# The headless backend needs no seat and no input devices; pixman is the only
+# renderer a box without a GPU can use.
+unset WAYLAND_DISPLAY WAYLAND_SOCKET DISPLAY
+export WLR_BACKENDS=headless
+export WLR_RENDERER=pixman
+export WLR_HEADLESS_OUTPUTS=1
+export WLR_LIBINPUT_NO_DEVICES=1
+
+# cage picks its own socket name and tells only its child. The child records
+# it before exec'ing CMD, which also leaves CMD with WAYLAND_DISPLAY set, the
+# signal for a compositor such as niri to run nested.
+# shellcheck disable=SC2016  # expanded by the child shell, not here
+cage -d -- /bin/bash -c 'printf %s "$WAYLAND_DISPLAY" >"$0.tmp" && mv "$0.tmp" "$0" && exec "$@"' \
+	"$state/display" "$@" &
+cage_pid=$!
+
+for _ in $(seq 200); do
+	[ -s "$state/display" ] && break
+	kill -0 "$cage_pid" 2>/dev/null || {
+		wait "$cage_pid" || true
+		die "cage exited before $1 started."
+	}
+	sleep 0.05
+done
+[ -s "$state/display" ] || die "cage did not start $1 within 10 seconds."
+WAYLAND_DISPLAY=$(cat "$state/display")
+export WAYLAND_DISPLAY
+
+if [ -n "$size$scale" ]; then
+	output=$(wlr-randr | awk '/^[^ ]/ { print $1; exit }')
+	[ -n "$output" ] || die "cage has no output to configure."
+	wlr-randr --output "$output" \
+		${size:+--custom-mode "$size"} \
+		${scale:+--scale "$scale"} ||
+		die "could not set the output to ${size:-its current size}${scale:+ at scale $scale}."
+fi
+
+if [ -n "$tcp" ]; then
+	wayvnc -S "$state/wayvncctl.sock" "${tcp%:*}" "${tcp##*:}" &
+else
+	wayvnc -S "$state/wayvncctl.sock" -u "$state/vnc.sock" &
+fi
+vnc_pid=$!
+
+# The control socket answers once wayvnc is listening for viewers.
+for _ in $(seq 200); do
+	wayvncctl -S "$state/wayvncctl.sock" version >/dev/null 2>&1 && break
+	kill -0 "$vnc_pid" 2>/dev/null || die "wayvnc exited before it was listening."
+	sleep 0.05
+done
+wayvncctl -S "$state/wayvncctl.sock" version >/dev/null 2>&1 ||
+	die "wayvnc was not listening within 10 seconds."
+echo ready
+
+# A viewer that runs this over a pipe (min display, through an SSH exec
+# channel) closes stdin to stop it, even if it cannot deliver a signal.
+if ! [ -t 0 ]; then
+	exec 3<&0
+	{
+		cat <&3 >/dev/null || true
+		kill -TERM $$ 2>/dev/null
+	} &
+	stdin_pid=$!
+	exec 3<&-
+fi
+
+status=0
+wait -n "$cage_pid" "$vnc_pid" || status=$?
+exit "$status"
