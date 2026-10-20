@@ -3,6 +3,9 @@ let base = import "../base/build.ncl" in
 let meson = import "../meson/build.ncl" in
 let ninja = import "../ninja/build.ncl" in
 let pkgconf = import "../pkgconf/build.ncl" in
+# wayland-scanner generates the <wayland-protocols/*-enum.h> headers; without
+# it meson silently skips them, and wlroots 0.20 includes them.
+let wayland = import "../wayland/build.ncl" in
 
 let version = "1.49" in
 {
@@ -19,16 +22,18 @@ let version = "1.49" in
     meson,
     ninja,
     pkgconf,
+    wayland,
   ],
-  # Pure data: XML protocol definitions plus a .pc file whose `pkgdatadir`
-  # variable is how consumers locate them. Nothing is compiled or linked, so
-  # there is no runtime dependency (not even libwayland).
+  # Pure data: XML protocol definitions, generated enum headers, and a .pc file
+  # whose `pkgdatadir` variable is how consumers locate them. Nothing is linked,
+  # so there is no runtime dependency (not even libwayland).
   runtime_deps = [],
 
   cmd = "./build.sh",
 
   outputs = {
     protocols = { glob = "usr/share/wayland-protocols/**" } | OutputData,
+    includes = { glob = "usr/include/wayland-protocols/**" } | OutputData,
     pkgconfigs = { glob = "usr/share/pkgconfig/*.pc" } | OutputData,
   },
 
