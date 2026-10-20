@@ -32,13 +32,14 @@ log() { printf '\n=== %s\n' "$1"; }
 # --------------------------------------------------------------------------
 # Step 1: fetch the pre-existing upstream packages these builds depend on.
 # --------------------------------------------------------------------------
-log "fetching prerequisites (one min add, 45 packages)"
+log "fetching prerequisites (one min add)"
 min add \
   base bash bison dbus eudev expat flex fontconfig freetype gcc gettext glib \
   glibc go hwdata libdrm liberation-fonts libffi libjpeg-turbo libpng libwebp \
   libx11 libxcb libxdamage libxext libxfixes libxml2 libxrandr libxshmfence \
   llvm m4 make meson nettle ninja pango perl pixman pkgconf python rust \
-  toolchain xorgproto xtrans zlib
+  toolchain xorgproto xtrans zlib \
+  coreutils gawk jansson libjpeg-turbo
 
 # --------------------------------------------------------------------------
 # Step 2: build, in dependency order.
@@ -73,12 +74,23 @@ build xwayland          # <- libepoxy, libxcvt, libxfont2, mesa, wayland,
 build niri              # <- cairo, libdisplay-info, libinput, libxkbcommon,
                         #    mesa, seatd, wayland
 
+# minimal-display: a headless Wayland desktop served over VNC, for `min display`.
+# Nothing in this group depends on the niri chain above except shared
+# upstream packages (wayland, wayland-protocols, libxkbcommon).
+build aml               # <- (none)
+build wlr-randr         # <- wayland
+build wlroots           # <- wayland, wayland-protocols, libxkbcommon
+build neatvnc           # <- aml
+build cage              # <- wlroots
+build wayvnc            # <- neatvnc, aml
+build minimal-display   # <- cage, wayvnc, wlr-randr
+
 # --------------------------------------------------------------------------
 # Step 3 (optional): install the packages you actually run.
 # --------------------------------------------------------------------------
 if [ "${1:-}" = "--install" ]; then
-  log "installing term.everything, niri, xwayland"
-  min add term.everything niri xwayland
+  log "installing term.everything, niri, xwayland, minimal-display"
+  min add term.everything niri xwayland minimal-display
 
   log "verifying the runtime data niri needs"
   # These two were the fresh-machine failure: without the xkb dataset niri
