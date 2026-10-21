@@ -112,23 +112,28 @@ reaper_pid=
 # seconds is killed. The pids come from files and it polls rather than
 # `wait`s, so the reaper below, which is not their parent and was forked
 # before some of them started, can run it too.
+#
+# CMD runs as the leader of a process group of its own, and the whole group
+# is stopped: what CMD started (niri's waybar, a session bus) goes with it,
+# including what a wrapper such as dbus-run-session would leave behind.
 stop_stack() {
 	local pids=
 	for name in cmd vnc cage; do
 		local pid
 		pid=$(cat "$state/$name.pid" 2>/dev/null) || continue
-		kill -TERM "$pid" 2>/dev/null && pids="$pids $pid"
+		[ "$name" = cmd ] && pid=-$pid
+		kill -TERM -- "$pid" 2>/dev/null && pids="$pids $pid"
 	done
 	for _ in $(seq 30); do
 		local alive=
 		for pid in $pids; do
-			kill -0 "$pid" 2>/dev/null && alive="$alive $pid"
+			kill -0 -- "$pid" 2>/dev/null && alive="$alive $pid"
 		done
 		[ -z "$alive" ] && break
 		sleep 0.1
 	done
 	for pid in $pids; do
-		kill -KILL "$pid" 2>/dev/null || true
+		kill -KILL -- "$pid" 2>/dev/null || true
 	done
 	rm -f "$state/display" "$state/"*.pid "$state/vnc.sock" "$state/wayvncctl.sock"
 }
@@ -156,13 +161,20 @@ export WLR_RENDERER=pixman
 export WLR_HEADLESS_OUTPUTS=1
 export WLR_LIBINPUT_NO_DEVICES=1
 
+# Desktop apps (GTK ones such as waybar among them) need a session bus, and a
+# box has none: give the desktop one of its own, unless this runs inside one.
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v dbus-run-session >/dev/null; then
+	set -- dbus-run-session -- "$@"
+fi
+
 # cage picks its own socket name and tells only its child. The child records
 # it, and its own pid, which CMD keeps, before exec'ing CMD. That also leaves
 # CMD with WAYLAND_DISPLAY set, the signal for a compositor such as niri to
-# run nested.
+# run nested. setsid makes CMD the leader of a new session and process group,
+# without forking (cage's child leads no group), so the pid is the group's.
 # shellcheck disable=SC2016  # expanded by the child shell, not here
 cage -d -- /bin/bash -c 'printf %s "$$" >"${0%/*}/cmd.pid" &&
-	printf %s "$WAYLAND_DISPLAY" >"$0.tmp" && mv "$0.tmp" "$0" && exec "$@"' \
+	printf %s "$WAYLAND_DISPLAY" >"$0.tmp" && mv "$0.tmp" "$0" && exec setsid -- "$@"' \
 	"$state/display" "$@" &
 cage_pid=$!
 printf %s "$cage_pid" >"$state/cage.pid"
