@@ -4,7 +4,9 @@ let base = import "../base/build.ncl" in
 let bash = import "../bash/build.ncl" in
 let cage = import "../cage/build.ncl" in
 let coreutils = import "../coreutils/build.ncl" in
+let dbus = import "../dbus/build.ncl" in
 let gawk = import "../gawk/build.ncl" in
+let util-linux = import "../util-linux/build.ncl" in
 let wayvnc = import "../wayvnc/build.ncl" in
 let wlr-randr = import "../wlr-randr/build.ncl" in
 
@@ -22,8 +24,12 @@ let wlr-randr = import "../wlr-randr/build.ncl" in
     bash,
     # id, mkdir, seq, sleep, cat, mv, rm.
     coreutils,
+    # dbus-run-session: the desktop's session bus.
+    dbus,
     # Picks the output name out of wlr-randr's listing.
     gawk,
+    # setsid: the desktop runs in a process group the host can stop whole.
+    util-linux,
     cage,
     wayvnc,
     wlr-randr,
