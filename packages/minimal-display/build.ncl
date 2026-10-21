@@ -45,8 +45,9 @@ let wlr-randr = import "../wlr-randr/build.ncl" in
     # Brings the whole stack up in a clean sandbox with no seat, no GPU and no
     # input devices -- the conditions inside a box -- and checks that cage
     # starts headless, that wlr-randr can resize its output, and that wayvnc
-    # comes up listening. `sleep` stands in for the desktop: cage does not
-    # care whether its child is a Wayland client.
+    # comes up listening, and that closing its stdin stops all of it.
+    # `sleep` stands in for the desktop: cage does not care whether its child
+    # is a Wayland client.
     stack_starts =
       {
         class = 'Standalone,
@@ -57,15 +58,24 @@ let wlr-randr = import "../wlr-randr/build.ncl" in
             "-c",
             m%"
               set -e
-              out=$(mktemp)
-              minimal-display-host --size 800x600 -- sleep 60 >"$out" &
+              dir=$(mktemp -d)
+              mkfifo "$dir/in"
+              # stdin is a pipe held open here, as `min session display`
+              # holds its exec channel; closing it is how min stops the host.
+              minimal-display-host --size 800x600 -- sleep 60 <"$dir/in" >"$dir/out" &
               host=$!
-              for _ in $(seq 300); do grep -qx ready "$out" && break; kill -0 $host; sleep 0.1; done
-              grep -qx ready "$out"
-              test -S "$XDG_RUNTIME_DIR/minimal-display/vnc.sock" \
-                || test -S "/tmp/runtime-$(id -u)/minimal-display/vnc.sock"
-              kill -TERM $host
+              exec 3>"$dir/in"
+              for _ in $(seq 300); do grep -qx ready "$dir/out" && break; kill -0 $host; sleep 0.1; done
+              grep -qx ready "$dir/out"
+              state=${XDG_RUNTIME_DIR:-/tmp/runtime-$(id -u)}/minimal-display
+              test -S "$state/vnc.sock"
+              cmd=$(cat "$state/cmd.pid")
+              exec 3>&-
               wait $host || test $? -eq 143
+              # Everything stopped with it: cage waits on its child forever,
+              # so the host must stop CMD itself.
+              if kill -0 "$cmd" 2>/dev/null; then echo "CMD outlived the host" >&2; exit 1; fi
+              test ! -e "$state/vnc.sock"
             "%,
           ],
         ],

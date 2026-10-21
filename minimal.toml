@@ -17,5 +17,5 @@ packages = ["base", "bash", "opencode", "curl"]
 exec = "opencode"
 
 [session]
-packages = ["base", "bash", "bison", "dbus", "eudev", "expat", "flex", "fontconfig", "freetype", "gcc", "gettext", "glib", "glibc", "go", "hwdata", "libdrm", "liberation-fonts", "libffi", "libjpeg-turbo", "libpng", "libwebp", "libx11", "libxcb", "libxdamage", "libxext", "libxfixes", "libxml2", "libxrandr", "libxshmfence", "llvm", "m4", "make", "meson", "nettle", "ninja", "pango", "perl", "pixman", "pkgconf", "python", "rust", "toolchain", "xorgproto", "xtrans", "zlib", "coreutils", "gawk", "jansson", "libjpeg-turbo", "minimal-display", "niri", "foot"]
+packages = ["base", "bash", "bison", "dbus", "eudev", "expat", "flex", "fontconfig", "freetype", "gcc", "gettext", "glib", "glibc", "go", "hwdata", "libdrm", "liberation-fonts", "libffi", "libjpeg-turbo", "libpng", "libwebp", "libx11", "libxcb", "libxdamage", "libxext", "libxfixes", "libxml2", "libxrandr", "libxshmfence", "llvm", "m4", "make", "meson", "nettle", "ninja", "pango", "perl", "pixman", "pkgconf", "python", "rust", "toolchain", "xorgproto", "xtrans", "zlib", "coreutils", "gawk", "jansson", "libjpeg-turbo", "minimal-display", "niri", "foot", "just", "protobuf", "openssl", "cargo-nextest"]
 
