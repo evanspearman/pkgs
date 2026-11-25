@@ -10,8 +10,9 @@ export CFLAGS="$MARCH -O2 -pipe -gno-record-gcc-switches -ffile-prefix-map=$(pwd
 export LDFLAGS="-Wl,--build-id=none"
 export CXXFLAGS="${CFLAGS}"
 
-# Mesa requires python packaging and mako modules
-pip3 install packaging mako pyyaml 2>/dev/null || pip install packaging mako pyyaml 2>/dev/null || true
+# Mesa's build needs the python packaging, mako and yaml modules. They come from
+# the py-* build_deps: the build sandbox has no network, so nothing is pip-installed.
+python3 -c 'import mako, packaging, yaml'
 
 # platforms: wayland was added alongside x11 so that EGL has a Wayland platform
 # at all -- without it libwayland-egl exists but nothing can bind a Wayland
