@@ -39,7 +39,8 @@ min add \
   libx11 libxcb libxdamage libxext libxfixes libxml2 libxrandr libxshmfence \
   llvm m4 make meson nettle ninja pango perl pixman pkgconf python rust \
   toolchain xorgproto xtrans zlib \
-  coreutils gawk bindgen detbuild lz4 openssh zstd
+  coreutils gawk bindgen detbuild lz4 openssh zstd \
+  setuptools flit-core pyproject-hooks py-packaging
 
 # --------------------------------------------------------------------------
 # Step 2: build, in dependency order.
@@ -53,12 +54,19 @@ for p in wayland wayland-protocols libxcvt font-util libxkbfile \
   build "$p"
 done
 
+# mesa's build imports mako, yaml and packaging; the build sandbox has no
+# network, so they come from these packages (py-packaging already exists).
+build py-markupsafe
+
 # Level 1.
 build libfontenc        # <- font-util
 build xkbcomp           # <- libxkbfile
 build libinput          # <- libevdev, mtdev
+build py-mako           # <- py-markupsafe
+build py-pyyaml
 build libxkbcommon      # <- xkeyboard-config
-build mesa              # <- libxxf86vm, wayland, wayland-protocols
+build mesa              # <- libxxf86vm, wayland, wayland-protocols,
+                        #    py-mako, py-pyyaml, py-packaging
 
 # Level 2.
 build libxfont2         # <- libfontenc
