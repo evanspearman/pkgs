@@ -40,7 +40,8 @@ min add \
   llvm m4 make meson nettle ninja pango perl pixman pkgconf python rust \
   toolchain xorgproto xtrans zlib \
   coreutils gawk bindgen detbuild lz4 openssh zstd \
-  setuptools flit-core pyproject-hooks py-packaging
+  setuptools flit-core pyproject-hooks py-packaging \
+  ca-certificates cmake libglvnd libxcursor libxi
 
 # --------------------------------------------------------------------------
 # Step 2: build, in dependency order.
@@ -89,12 +90,17 @@ build sdl2
 build chocolate-doom    # <- sdl2
 build freedoom
 
+# photocraft: needs the network (crates.io and github.com, for its git deps) and
+# is a long build (~900 crates). Runtime deps: libxkbcommon, wayland, mesa, and
+# the X11 libs above.
+build photocraft
+
 # --------------------------------------------------------------------------
 # Step 3 (optional): install the packages you actually run.
 # --------------------------------------------------------------------------
 if [ "${1:-}" = "--install" ]; then
-  log "installing niri, xwayland, waypipe, chocolate-doom, freedoom"
-  min add niri xwayland waypipe chocolate-doom freedoom
+  log "installing niri, xwayland, waypipe, chocolate-doom, freedoom, photocraft"
+  min add niri xwayland waypipe chocolate-doom freedoom photocraft
 
   log "verifying the runtime data niri needs"
   # These two were the fresh-machine failure: without the xkb dataset niri
