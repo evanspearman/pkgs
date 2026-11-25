@@ -39,7 +39,7 @@ min add \
   libx11 libxcb libxdamage libxext libxfixes libxml2 libxrandr libxshmfence \
   llvm m4 make meson nettle ninja pango perl pixman pkgconf python rust \
   toolchain xorgproto xtrans zlib \
-  coreutils gawk
+  coreutils gawk bindgen detbuild lz4 openssh zstd
 
 # --------------------------------------------------------------------------
 # Step 2: build, in dependency order.
@@ -73,6 +73,9 @@ build xwayland          # <- libepoxy, libxcvt, libxfont2, mesa, wayland,
 build niri              # <- cairo, libdisplay-info, libinput, libxkbcommon,
                         #    mesa, seatd, wayland
 
+# waypipe: needs mesa (libgbm) and wayland only at runtime/headers; build after mesa.
+build waypipe           # <- mesa
+
 # Doom (sdl2 -> chocolate-doom; freedoom is the data file).
 build sdl2
 build chocolate-doom    # <- sdl2
@@ -82,8 +85,8 @@ build freedoom
 # Step 3 (optional): install the packages you actually run.
 # --------------------------------------------------------------------------
 if [ "${1:-}" = "--install" ]; then
-  log "installing niri, xwayland, chocolate-doom, freedoom"
-  min add niri xwayland chocolate-doom freedoom
+  log "installing niri, xwayland, waypipe, chocolate-doom, freedoom"
+  min add niri xwayland waypipe chocolate-doom freedoom
 
   log "verifying the runtime data niri needs"
   # These two were the fresh-machine failure: without the xkb dataset niri
